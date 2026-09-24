@@ -1,0 +1,22 @@
+name: inventory-sp3
+services:
+  mysql:
+    # MySQL 26.7.0, resolved from the official mysql:latest image on 2026-09-23.
+    image: mysql:26.7.0@sha256:ade067ae2fb15eeb6143e81185afe22573e3b3addc58aaf90c41999fa6883991
+    container_name: inventory-sp3-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: db_inventory
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+volumes:
+  mysql-data:
