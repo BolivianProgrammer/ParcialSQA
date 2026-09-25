@@ -1,0 +1,3557 @@
+{
+  "info": {
+    "_postman_id": "800e2d46-3786-4232-828f-15f25528a721",
+    "name": "ParcialSQA - Pruebas funcionales originales",
+    "description": "Coleccion original preparada para ParcialSQA. 46 solicitudes, organizadas en orden. Importar el JSON, copiar los dos PNG al directorio de trabajo de Postman y ejecutar con 1 iteracion. baseUrl ya esta configurada; no requiere archivo de entorno.\n\nCrea tres categorias (una temporal) y dos productos con nombres unicos; al finalizar borra esos registros. No elimina registros ajenos ni requiere una base vacia. Si se interrumpe, ejecutar la carpeta 06 Limpieza y cierre antes de empezar una corrida nueva. Algunos controles de esa carpeta pueden fallar si la preparacion quedo incompleta; revisar los registros pendientes. Solicitudes omitidas por falta de datos NO equivalen a pruebas aprobadas.\n\nLos estados de creacion y actualizacion 200 corresponden al contrato actual. El 404 del filtro sin resultados se identifica como caracterizacion. No se asumen reglas nuevas de precio, nombres duplicados ni archivos permitidos. Las excepciones del DAO simuladas por Mockito y las celdas de Excel se prueban aparte. La comprobacion de ZIP no valida todo el XLSX.\n\nPreparada mediante inspeccion del codigo; revisar VERIFICACION.txt para el alcance real de validacion. Ejecutar en Postman produce resultados de prueba; este archivo no acredita aprobacion previa.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "43536598"
+  },
+  "item": [
+    {
+      "name": "01 Inicio y categorias",
+      "item": [
+        {
+          "name": "01 | Iniciar ejecucion y listar categorias",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const keys = [\"catAId\",\"catBId\",\"catGoneId\",\"prodAId\",\"prodBId\"];",
+                  "  if (keys.some(k => pm.collectionVariables.get(\"active_\" + k) === \"true\")) {",
+                  "    console.error(\"Hay datos de una ejecucion anterior. Ejecutar 06 Limpieza y cierre antes de empezar otra.\");",
+                  "    pm.execution.setNextRequest(null); pm.execution.skipRequest();",
+                  "  }",
+                  "  const run = \"SQA-\" + Date.now() + \"-\" + Math.floor(Math.random()*100000);",
+                  "  for (const k of keys) { pm.collectionVariables.unset(k); pm.collectionVariables.unset(\"active_\" + k); }",
+                  "  for (const [k,v] of Object.entries({runId:run, catNameA:run+\"-Categoria-A\", catNameB:run+\"-Categoria-B\", catNameGone:run+\"-Categoria-Eliminada\", catNameUpdated:run+\"-Categoria-Actualizada\", prodNameA:run+\"-Producto-A\", prodNameB:run+\"-Producto-B\", prodNameUpdated:run+\"-Producto-Actualizado\", filterText:run+\"-Producto\", filterUpper:(run+\"-Producto\").toUpperCase()})) {",
+                  "    pm.collectionVariables.set(k,v);",
+                  "  }",
+                  "",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  comprobar(\"Lista de categorias\", Array.isArray(listaCategorias()));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-02. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "02 | Crear categoria A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"runId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "  if (pm.collectionVariables.get(\"active_catAId\") === \"true\") {",
+                  "    console.error(\"Este registro ya se creo. Continuar en orden o ejecutar la carpeta de limpieza antes de repetir.\");",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameA\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Categoria de prueba SQA\");",
+                  "  if (pm.response.code === 200 && c && idValido(c.id) && c.name === cv.get(\"catNameA\")) {",
+                  "    cv.set(\"catAId\", String(c.id)); cv.set(\"active_catAId\", \"true\");",
+                  "  }",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"{{catNameA}}\", \"description\": \"Categoria de prueba SQA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-01. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "03 | Consultar categoria A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameA\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Categoria de prueba SQA\");",
+                  "  comprobar(\"Mismo ID\", c && String(c.id) === String(cv.get(\"catAId\")));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catAId}}"
+              ]
+            },
+            "description": "HU-02. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "04 | Crear categoria B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"runId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "  if (pm.collectionVariables.get(\"active_catBId\") === \"true\") {",
+                  "    console.error(\"Este registro ya se creo. Continuar en orden o ejecutar la carpeta de limpieza antes de repetir.\");",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameB\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Categoria de prueba SQA\");",
+                  "  if (pm.response.code === 200 && c && idValido(c.id) && c.name === cv.get(\"catNameB\")) {",
+                  "    cv.set(\"catBId\", String(c.id)); cv.set(\"active_catBId\", \"true\");",
+                  "  }",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"{{catNameB}}\", \"description\": \"Categoria de prueba SQA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-01. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "05 | Listar ambas categorias",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const cats=listaCategorias();",
+                  "  comprobar(\"Estan las dos categorias\", Array.isArray(cats) && [\"catAId\",\"catBId\"].every(k => cats.some(c=>String(c.id)===String(cv.get(k)))));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-02. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "06 | Actualizar categoria A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameUpdated\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Descripcion actualizada\");",
+                  "  comprobar(\"Mismo ID\", c && String(c.id) === String(cv.get(\"catAId\")));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"{{catNameUpdated}}\", \"description\": \"Descripcion actualizada\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catAId}}"
+              ]
+            },
+            "description": "HU-03. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "07 | Confirmar categoria actualizada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameUpdated\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Descripcion actualizada\");",
+                  "  comprobar(\"Mismo ID\", c && String(c.id) === String(cv.get(\"catAId\")));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catAId}}"
+              ]
+            },
+            "description": "HU-03. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "08 | Rechazar JSON mal formado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-01. Error de formato, no una regla nueva de negocio. HTTP esperado: 400. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "09 | Rechazar ID de categoria no numerico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/no-es-numero",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "no-es-numero"
+              ]
+            },
+            "description": "HU-02. Funcional. HTTP esperado: 400. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Categoria inexistente preparada",
+      "item": [
+        {
+          "name": "10 | Crear categoria temporal para errores 404",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"runId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "  if (pm.collectionVariables.get(\"active_catGoneId\") === \"true\") {",
+                  "    console.error(\"Este registro ya se creo. Continuar en orden o ejecutar la carpeta de limpieza antes de repetir.\");",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const c = categoria();",
+                  "  comprobar(\"Categoria con ID valido\", c && idValido(c.id));",
+                  "  comprobar(\"Nombre esperado\", c && c.name === cv.get(\"catNameGone\"));",
+                  "  comprobar(\"Descripcion esperada\", c && c.description === \"Categoria de prueba SQA\");",
+                  "  if (pm.response.code === 200 && c && idValido(c.id) && c.name === cv.get(\"catNameGone\")) {",
+                  "    cv.set(\"catGoneId\", String(c.id)); cv.set(\"active_catGoneId\", \"true\");",
+                  "  }",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"{{catNameGone}}\", \"description\": \"Categoria de prueba SQA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-01. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "11 | Eliminar categoria temporal",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_catGoneId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catGoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catGoneId}}"
+              ]
+            },
+            "description": "HU-04. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "12 | Consultar categoria eliminada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catGoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catGoneId}}"
+              ]
+            },
+            "description": "HU-02. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "13 | Actualizar categoria inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"{{catNameGone}}\", \"description\": \"Categoria de prueba SQA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catGoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catGoneId}}"
+              ]
+            },
+            "description": "HU-03. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 Productos y busquedas",
+      "item": [
+        {
+          "name": "14 | Crear producto A con imagen",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "  if (pm.collectionVariables.get(\"active_prodAId\") === \"true\") {",
+                  "    console.error(\"Este registro ya se creo. Continuar en orden o ejecutar la carpeta de limpieza antes de repetir.\");",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameA\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 25);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 4);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catAId\")));",
+                  "  if (pm.response.code === 200 && p && idValido(p.id) && p.name === cv.get(\"prodNameA\")) { cv.set(\"prodAId\", String(p.id)); cv.set(\"active_prodAId\", \"true\"); }",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameA}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catAId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-05. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "15 | Consultar producto A e imagen",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameA\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 25);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 4);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catAId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4YKQBAANgAUumLeWTAAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-06. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "16 | Crear producto B con imagen",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "  if (pm.collectionVariables.get(\"active_prodBId\") === \"true\") {",
+                  "    console.error(\"Este registro ya se creo. Continuar en orden o ejecutar la carpeta de limpieza antes de repetir.\");",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameB\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 50);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 9);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catAId\")));",
+                  "  if (pm.response.code === 200 && p && idValido(p.id) && p.name === cv.get(\"prodNameB\")) { cv.set(\"prodBId\", String(p.id)); cv.set(\"active_prodBId\", \"true\"); }",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameB}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "50"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "9"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catAId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-05. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "17 | Listar productos preparados",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const prods=listaProductos();",
+                  "  comprobar(\"Aparecen los dos productos\", Array.isArray(prods) && [\"prodAId\",\"prodBId\"].every(k => prods.some(p=>String(p.id)===String(cv.get(k)))));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-06. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "18 | Buscar nombre completo",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"prodNameA\", \"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameA\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 25);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 4);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catAId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4YKQBAANgAUumLeWTAAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/filter/{{prodNameA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "filter",
+                "{{prodNameA}}"
+              ]
+            },
+            "description": "HU-07. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "19 | Buscar coincidencia parcial",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"prodBId\", \"filterText\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const prods=listaProductos();",
+                  "  comprobar(\"Aparecen los dos productos\", Array.isArray(prods) && [\"prodAId\",\"prodBId\"].every(k => prods.some(p=>String(p.id)===String(cv.get(k)))));",
+                  "  comprobar(\"Solo hay las dos coincidencias unicas de esta corrida\", Array.isArray(prods) && prods.length===2 && prods.every(p=>p.name.includes(cv.get(\"filterText\"))));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/filter/{{filterText}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "filter",
+                "{{filterText}}"
+              ]
+            },
+            "description": "HU-07. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "20 | Buscar sin distinguir mayusculas",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"prodBId\", \"filterUpper\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const prods=listaProductos();",
+                  "  comprobar(\"Aparecen los dos productos\", Array.isArray(prods) && [\"prodAId\",\"prodBId\"].every(k => prods.some(p=>String(p.id)===String(cv.get(k)))));",
+                  "  comprobar(\"Solo hay las dos coincidencias unicas de esta corrida\", Array.isArray(prods) && prods.length===2 && prods.every(p=>p.name.includes(cv.get(\"filterText\"))));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/filter/{{filterUpper}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "filter",
+                "{{filterUpper}}"
+              ]
+            },
+            "description": "HU-07. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "21 | Actualizar producto A y cambiar imagen y categoria",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameUpdated\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 35);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 7);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catBId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-actualizado.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameUpdated}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "35"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "7"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catBId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "22 | Confirmar producto actualizado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameUpdated\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 35);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 7);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catBId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQC3gGAAHkAVULS2X/AAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08 / HU-06. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "23 | Repetir lectura sin alterar la imagen",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameUpdated\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 35);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 7);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catBId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQC3gGAAHkAVULS2X/AAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08 / HU-06. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 Errores de entrada y referencias",
+      "item": [
+        {
+          "name": "24 | Crear producto con categoria inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameUpdated}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catGoneId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-05. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "25 | Actualizar producto con categoria inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameA}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catGoneId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "26 | Confirmar que el rechazo no cambio el producto",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameUpdated\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 35);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 7);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catBId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQC3gGAAHkAVULS2X/AAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "27 | Crear producto sin archivo requerido",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameA}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catAId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-05. Funcional. HTTP esperado: 400. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "28 | Crear producto con precio no numerico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameA}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "abc"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catAId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-05. Funcional. HTTP esperado: 400. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "29 | Actualizar con cantidad no numerica",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameA}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "abc"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catAId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 400. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "30 | Confirmar datos tras errores de formato",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const p = producto();",
+                  "  comprobar(\"Producto con ID valido\", p && idValido(p.id));",
+                  "  comprobar(\"Nombre esperado\", p && p.name === cv.get(\"prodNameUpdated\"));",
+                  "  comprobar(\"Precio esperado\", p && p.price === 35);",
+                  "  comprobar(\"Cantidad esperada\", p && p.account === 7);",
+                  "  comprobar(\"Categoria esperada\", p && p.category && String(p.category.id) === String(cv.get(\"catBId\")));",
+                  "  comprobar(\"Mismo ID\", p && String(p.id) === String(cv.get(\"prodAId\")));",
+                  "  comprobar(\"Imagen recuperada coincide byte a byte (Base64)\", p && p.picture === \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQC3gGAAHkAVULS2X/AAAAAElFTkSuQmCC\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "31 | Consultar ID de producto no numerico",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 400\", (pm.response.code) === (400));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/no-es-numero",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "no-es-numero"
+              ]
+            },
+            "description": "HU-06. Funcional. HTTP esperado: 400. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 Exportaciones",
+      "item": [
+        {
+          "name": "32 | Exportar categorias a Excel",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\", \"catBId\", \"prodAId\", \"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Nombre de descarga\", (pm.response.headers.get(\"Content-Disposition\") || \"\").includes(\"result_category.xlsx\"));",
+                  "  comprobar(\"Tipo de contenido actual\", (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/octet-stream\"));",
+                  "  const bytes = pm.response.stream;",
+                  "  comprobar(\"Contenido ZIP de un XLSX no vacio\", bytes && bytes.length > 100 && bytes[0] === 80 && bytes[1] === 75 && bytes[2] === 3 && bytes[3] === 4);",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/export/excel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "export",
+                "excel"
+              ]
+            },
+            "description": "HU-10. Comprueba HTTP y contenedor ZIP; abrir XLSX manualmente para validar celdas. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "33 | Exportar productos a Excel",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\", \"catBId\", \"prodAId\", \"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Nombre de descarga\", (pm.response.headers.get(\"Content-Disposition\") || \"\").includes(\"result_product.xlsx\"));",
+                  "  comprobar(\"Tipo de contenido actual\", (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/octet-stream\"));",
+                  "  const bytes = pm.response.stream;",
+                  "  comprobar(\"Contenido ZIP de un XLSX no vacio\", bytes && bytes.length > 100 && bytes[0] === 80 && bytes[1] === 75 && bytes[2] === 3 && bytes[3] === 4);",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/export/excel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "export",
+                "excel"
+              ]
+            },
+            "description": "HU-11. Comprueba HTTP y contenedor ZIP; abrir XLSX manualmente para validar celdas. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 Limpieza y cierre",
+      "item": [
+        {
+          "name": "34 | Eliminar producto B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_prodBId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodBId}}"
+              ]
+            },
+            "description": "HU-09. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "35 | Confirmar producto B eliminado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodBId}}"
+              ]
+            },
+            "description": "HU-06 / HU-09. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "36 | Actualizar producto inexistente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodBId\", \"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "picture",
+                  "type": "file",
+                  "contentType": "image/png",
+                  "src": "producto-inicial.png"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "{{prodNameB}}"
+                },
+                {
+                  "key": "price",
+                  "type": "text",
+                  "value": "25"
+                },
+                {
+                  "key": "account",
+                  "type": "text",
+                  "value": "4"
+                },
+                {
+                  "key": "categoryId",
+                  "type": "text",
+                  "value": "{{catBId}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodBId}}"
+              ]
+            },
+            "description": "HU-08. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. Utiliza archivos PNG incluidos, desde el directorio de trabajo de Postman. "
+          },
+          "response": []
+        },
+        {
+          "name": "37 | Listar productos tras eliminar B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\", \"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const prods=listaProductos();",
+                  "  comprobar(\"B ausente y A conservado\", Array.isArray(prods) && !prods.some(p=>String(p.id)===String(cv.get(\"prodBId\"))) && prods.some(p=>String(p.id)===String(cv.get(\"prodAId\"))));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "HU-06 / HU-09. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "38 | Eliminar producto A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_prodAId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-09. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "39 | Confirmar producto A eliminado",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"prodAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{prodAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{prodAId}}"
+              ]
+            },
+            "description": "HU-06 / HU-09. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "40 | Buscar tras eliminar ambos productos",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"filterText\", \"prodAId\", \"prodBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/filter/{{filterText}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "filter",
+                "{{filterText}}"
+              ]
+            },
+            "description": "HU-07 / HU-09. Caracterizacion explicita: el codigo actual devuelve 404 sin coincidencias; revisar si se acuerda otro contrato. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "41 | Eliminar categoria A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_catAId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catAId}}"
+              ]
+            },
+            "description": "HU-04. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "42 | Confirmar categoria A eliminada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catAId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catAId}}"
+              ]
+            },
+            "description": "HU-02 / HU-04. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "43 | Eliminar categoria B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_catBId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catBId}}"
+              ]
+            },
+            "description": "HU-04. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "44 | Confirmar categoria B eliminada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"catBId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 404\", (pm.response.code) === (404));",
+                  "  comprobar(\"Metadata indica error\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"-1\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catBId}}"
+              ]
+            },
+            "description": "HU-02 / HU-04. Funcional. HTTP esperado: 404. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "45 | Reintentar limpieza de categoria temporal solo si quedo pendiente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  if (pm.collectionVariables.get(\"active_catGoneId\") !== \"true\") pm.execution.skipRequest();",
+                  "  const necesarios = [\"catGoneId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "",
+                  "  if (pm.response.code === 200) cv.set(\"active_catGoneId\", \"false\");",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories/{{catGoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories",
+                "{{catGoneId}}"
+              ]
+            },
+            "description": "Preparacion y limpieza. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        },
+        {
+          "name": "46 | Verificar limpieza de las categorias de esta corrida",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const necesarios = [\"runId\"];",
+                  "  const faltan = necesarios.filter(k => !pm.collectionVariables.get(k));",
+                  "  if (faltan.length) {",
+                  "    console.error(\"BLOQUEADO: ejecutar las solicitudes anteriores. Faltan: \" + faltan.join(\", \"));",
+                  "    pm.execution.skipRequest();",
+                  "  }",
+                  "  for (const k of necesarios) pm.variables.set(k, pm.collectionVariables.get(k));",
+                  "  for (const k of [\"runId\",\"catNameA\",\"catNameB\",\"catNameGone\",\"catNameUpdated\",\"prodNameA\",\"prodNameB\",\"prodNameUpdated\",\"filterText\",\"filterUpper\"]) {",
+                  "    const v = pm.collectionVariables.get(k); if (v) pm.variables.set(k, v);",
+                  "  }",
+                  "})();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "(function () {",
+                  "  const cv = pm.collectionVariables;",
+                  "  function comprobar(nombre, condicion) {",
+                  "    pm.test(nombre, function () { pm.expect(Boolean(condicion)).to.eql(true); });",
+                  "  }",
+                  "  let data = null;",
+                  "  try { data = pm.response.json(); } catch (_) { }",
+                  "  function categoria() { return data && data.categoryResponse && Array.isArray(data.categoryResponse.category) ? data.categoryResponse.category[0] : null; }",
+                  "  function producto() { return data && data.product && Array.isArray(data.product.products) ? data.product.products[0] : null; }",
+                  "  function idValido(id) { return Number.isSafeInteger(Number(id)) && Number(id) > 0; }",
+                  "  function listaCategorias() { return data && data.categoryResponse ? data.categoryResponse.category : null; }",
+                  "  function listaProductos() { return data && data.product ? data.product.products : null; }",
+                  "  comprobar(\"HTTP 200\", (pm.response.code) === (200));",
+                  "  comprobar(\"Metadata indica exito\", data && Array.isArray(data.metadata) && data.metadata.some(m => m.code === \"00\"));",
+                  "  const cats=listaCategorias();",
+                  "  comprobar(\"Ninguna categoria propia pendiente\", Array.isArray(cats) && !cats.some(c=>[cv.get(\"catAId\"),cv.get(\"catBId\"),cv.get(\"catGoneId\")].includes(String(c.id))));",
+                  "  comprobar(\"Sin registros activos pendientes\", ![\"catAId\",\"catBId\",\"catGoneId\",\"prodAId\",\"prodBId\"].some(k=>cv.get(\"active_\"+k)===\"true\"));",
+                  "})();"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "HU-04 / Cierre. Funcional. HTTP esperado: 200. Ejecutar en el orden de la coleccion. "
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8080/api/v1"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "catNameA",
+      "value": ""
+    },
+    {
+      "key": "catNameB",
+      "value": ""
+    },
+    {
+      "key": "catNameGone",
+      "value": ""
+    },
+    {
+      "key": "catNameUpdated",
+      "value": ""
+    },
+    {
+      "key": "prodNameA",
+      "value": ""
+    },
+    {
+      "key": "prodNameB",
+      "value": ""
+    },
+    {
+      "key": "prodNameUpdated",
+      "value": ""
+    },
+    {
+      "key": "filterText",
+      "value": ""
+    },
+    {
+      "key": "filterUpper",
+      "value": ""
+    },
+    {
+      "key": "catAId",
+      "value": ""
+    },
+    {
+      "key": "active_catAId",
+      "value": ""
+    },
+    {
+      "key": "catGoneId",
+      "value": ""
+    },
+    {
+      "key": "active_catGoneId",
+      "value": ""
+    },
+    {
+      "key": "catBId",
+      "value": ""
+    },
+    {
+      "key": "active_catBId",
+      "value": ""
+    },
+    {
+      "key": "prodAId",
+      "value": ""
+    },
+    {
+      "key": "active_prodAId",
+      "value": ""
+    },
+    {
+      "key": "prodBId",
+      "value": ""
+    },
+    {
+      "key": "active_prodBId",
+      "value": ""
+    }
+  ]
+}
