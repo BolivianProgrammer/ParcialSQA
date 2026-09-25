@@ -53,6 +53,8 @@ class CategoryServiceImplTest {
         assertEquals(HttpStatus.OK, response.getStatusCode(), "El estado de la respueesta HTTP debe ser OK");
         assertNotNull(response.getBody(), "El cuerpo de la respuesta no debe ser nulo");
         assertEquals("Abarrotes", response.getBody().getCategoryResponse().getCategory().get(0).getName(), "El nombre de la primera categoria debe ser Abarrotes");
+        assertEquals("Lacteos", response.getBody().getCategoryResponse().getCategory().get(1).getName());
+        assertEquals("00", response.getBody().getMetadata().get(0).get("code"));
 
         //Optional
         verify(categoryDao, times(1)).findAll();
@@ -77,6 +79,7 @@ class CategoryServiceImplTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode(), "El estado de la respuesta HTTP debe ser INTERNAL_SERVER_ERROR");
         assertNotNull(response.getBody(), "El cuerpo de la respuesta no debe ser nulo");
         assertEquals("Respuesta nok", response.getBody().getMetadata().get(0).get("type"), "El tipo de respuesta debe ser Respuesta nok");
+        assertEquals("Error al consultar", response.getBody().getMetadata().get(0).get("date"));
 
         //Optional
         verify(categoryDao, times(1)).findAll();
@@ -102,8 +105,11 @@ class CategoryServiceImplTest {
         assertEquals(HttpStatus.OK, response.getStatusCode(), "El estado de la respuesta HTTP debe ser OK");
         assertNotNull(response.getBody(), "El cuerpo de la respuesta no debe ser nulo");
         assertEquals("Bebidas", response.getBody().getCategoryResponse().getCategory().get(0).getName(), "El nombre de la categoria guardada debe ser Bebidas");
+        assertEquals(3L, response.getBody().getCategoryResponse().getCategory().get(0).getId());
+        assertEquals("Distintas tipos de bebidas", response.getBody().getCategoryResponse().getCategory().get(0).getDescription());
+        assertEquals("00", response.getBody().getMetadata().get(0).get("code"));
 
-        verify(categoryDao, times(1)).save(ArgumentMatchers.any());
+        verify(categoryDao, times(1)).save(category);
     }
 
     /**
@@ -126,6 +132,7 @@ class CategoryServiceImplTest {
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode(), "El estado de la respuesta HTTP debe ser BAD_REQUEST");
         assertNotNull(response.getBody(), "El cuerpo de la respuesta no debe ser nulo");
         assertEquals("Respuesta nok", response.getBody().getMetadata().get(0).get("type"), "El tipo de respuesta debe ser Respuesta nok");
+        assertEquals("Categoria no guardada", response.getBody().getMetadata().get(0).get("date"));
 
         verify(categoryDao, times(1)).save(ArgumentMatchers.any());
     }
@@ -150,6 +157,7 @@ class CategoryServiceImplTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode(), "El estado de la respuesta HTTP debe ser INTERNAL_SERVER_ERROR");
         assertNotNull(response.getBody(), "El cuerpo de la respuesta no debe ser nulo");
         assertEquals("Respuesta nok", response.getBody().getMetadata().get(0).get("type"), "El tipo de respuesta debe ser Respuesta nok");
+        assertEquals("Error al grabar categoria", response.getBody().getMetadata().get(0).get("date"));
 
         verify(categoryDao, times(1)).save(ArgumentMatchers.any());
     }
