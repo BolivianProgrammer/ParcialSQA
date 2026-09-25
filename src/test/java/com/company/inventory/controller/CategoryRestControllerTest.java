@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -21,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,8 +43,6 @@ class CategoryRestControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Initialize mocks before each test
-        //MockitoAnnotations.openMocks(this);
         this.mockMvc = MockMvcBuilders.standaloneSetup(categoryRestController).build();
         this.chargeList();
     }
@@ -67,7 +66,16 @@ class CategoryRestControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.categoryResponse").exists())
                 .andExpect(jsonPath("$.categoryResponse.category[0].name").value("Abarrotes"))
+                .andExpect(jsonPath("$.categoryResponse.category.length()").value(2))
+                .andExpect(jsonPath("$.categoryResponse.category[0].id").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].description").value("Distintos tipos de abarrotes"))
+                .andExpect(jsonPath("$.categoryResponse.category[1].id").value(2))
+                .andExpect(jsonPath("$.categoryResponse.category[1].name").value("Lacteos"))
+                .andExpect(jsonPath("$.categoryResponse.category[1].description").value("Distintos tipos de lacteos"))
                 .andExpect(status().isOk());
+
+        verify(service).search();
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -87,8 +95,12 @@ class CategoryRestControllerTest {
             // Then)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("01"))
+                .andExpect(jsonPath("$.metadata[0].type").value("Error"))
                 .andExpect(status().isInternalServerError());
+
+        verify(service).search();
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -112,7 +124,14 @@ class CategoryRestControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.categoryResponse").exists())
                 .andExpect(jsonPath("$.categoryResponse.category[0].name").value("Abarrotes"))
+                .andExpect(jsonPath("$.categoryResponse.category.length()").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].id").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].description").value("Distintos tipos de abarrotes"))
+                .andExpect(jsonPath("$.metadata[0].code").value("00"))
                 .andExpect(status().isOk());
+
+        verify(service).searchById(id);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -133,8 +152,12 @@ class CategoryRestControllerTest {
             // Then
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("01"))
+                .andExpect(jsonPath("$.metadata[0].type").value("Error"))
                 .andExpect(status().isInternalServerError());
+
+        verify(service).searchById(id);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -163,7 +186,14 @@ class CategoryRestControllerTest {
                 // Then
                 .andExpect(jsonPath("$.categoryResponse").exists())
                 .andExpect(jsonPath("$.categoryResponse.category[0].name").value("Bebidas"))
+                .andExpect(jsonPath("$.categoryResponse.category.length()").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].id").value(3))
+                .andExpect(jsonPath("$.categoryResponse.category[0].description").value("Distintos tipos de bebidas"))
+                .andExpect(jsonPath("$.metadata[0].code").value("00"))
                 .andExpect(status().isOk());
+
+        verify(service).save(category);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -189,8 +219,12 @@ class CategoryRestControllerTest {
                 .content(objectMapper.writeValueAsString(category))
                 .accept(MediaType.APPLICATION_JSON))
                 // Then
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("01"))
+                .andExpect(jsonPath("$.metadata[0].type").value("Error"))
                 .andExpect(status().isInternalServerError());
+
+        verify(service).save(category);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -220,7 +254,14 @@ class CategoryRestControllerTest {
                 // Then
                 .andExpect(jsonPath("$.categoryResponse").exists())
                 .andExpect(jsonPath("$.categoryResponse.category[0].name").value("Abarrotes Actualizado"))
+                .andExpect(jsonPath("$.categoryResponse.category.length()").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].id").value(1))
+                .andExpect(jsonPath("$.categoryResponse.category[0].description").value("Descripcion actualizada"))
+                .andExpect(jsonPath("$.metadata[0].code").value("00"))
                 .andExpect(status().isOk());
+
+        verify(service).update(category, id);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -247,8 +288,12 @@ class CategoryRestControllerTest {
                 .content(objectMapper.writeValueAsString(category))
                 .accept(MediaType.APPLICATION_JSON))
                 // Then
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("01"))
+                .andExpect(jsonPath("$.metadata[0].type").value("Error"))
                 .andExpect(status().isInternalServerError());
+
+        verify(service).update(category, id);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -269,8 +314,11 @@ class CategoryRestControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
                 // Then
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("00"))
                 .andExpect(status().isOk());
+
+        verify(service).deleteById(id);
+        verifyNoMoreInteractions(service);
     }
 
     /**
@@ -291,13 +339,17 @@ class CategoryRestControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
                 // Then
-                .andExpect(jsonPath("$.metadata").exists())
+                .andExpect(jsonPath("$.metadata[0].code").value("01"))
+                .andExpect(jsonPath("$.metadata[0].type").value("Error"))
                 .andExpect(status().isInternalServerError());
+
+        verify(service).deleteById(id);
+        verifyNoMoreInteractions(service);
     }
 
 
     /**
-     * Método que agrega datos a la lista de categorias
+     * MÃ©todo que agrega datos a la lista de categorias
      */
     public void chargeList() {
         Category category = new Category();
