@@ -28,3 +28,11 @@ API disponible en `http://localhost:8080/api/v1`. Puedes probar `GET /categories
 ```
 
 Reporte de cobertura: `target/site/jacoco/index.html`.
+
+El archivo `lombok.config` marca los métodos generados por Lombok para que JaCoCo
+no los cuente como código escrito por el equipo. El reporte sigue midiendo las
+clases del proyecto y los métodos implementados a mano. Para regenerarlo desde
+cero, ejecuta `.\mvnw.cmd clean verify`; el resultado actual es 106 pruebas sin
+fallos y cobertura de 97,7 % de líneas, 97,9 % de instrucciones y 92,5 % de
+ramas. Estos porcentajes usan el alcance sin los métodos generados; no son
+comparables directamente con el reporte anterior que los incluía.
